@@ -16,10 +16,10 @@ services:
       SECRET_KEY: ${SERVICE_BASE64_WEB}
       SIGNING_KEY: ${SERVICE_BASE64_64_WEB}
       TIME_ZONE: Europe/Berlin
-      CSRF_TRUSTED_ORIGINS: https://${SERVICE_FQDN_WEB},https://${SERVICE_FQDN_WEB_2}
+      CSRF_TRUSTED_ORIGINS: https://${SERVICE_FQDN_NGINX},https://${SERVICE_FQDN_NGINX_2}
       X_FORWARDED_PROTO_HEADER_SET: True
-      MEDIA_URL: https://${SERVICE_FQDN_WEB}/media/
-      STATIC_URL: https://${SERVICE_FQDN_WEB}/static/
+      MEDIA_URL: https://${SERVICE_FQDN_NGINX}/media/
+      STATIC_URL: https://${SERVICE_FQDN_NGINX}/static/
       WGER_INSTANCE: https://wger.de
       ALLOW_REGISTRATION: "True"
       ALLOW_GUEST_USERS: "True"
@@ -55,7 +55,7 @@ services:
       DJANGO_DEBUG: "False"
       WGER_USE_GUNICORN: "True"
       EXERCISE_CACHE_TTL: 18000
-      SITE_URL: http://${SERVICE_FQDN_WEB}
+      SITE_URL: http://${SERVICE_FQDN_NGINX}
       ACCESS_TOKEN_LIFETIME: 10
       REFRESH_TOKEN_LIFETIME: 24
       USE_RECAPTCHA: "False"
@@ -163,10 +163,10 @@ services:
       SECRET_KEY: ${SERVICE_BASE64_WEB}
       SIGNING_KEY: ${SERVICE_BASE64_64_WEB}
       TIME_ZONE: Europe/Berlin
-      CSRF_TRUSTED_ORIGINS: https://${SERVICE_FQDN_WEB},https://${SERVICE_FQDN_WEB_2}
+      CSRF_TRUSTED_ORIGINS: https://${SERVICE_FQDN_NGINX},https://${SERVICE_FQDN_NGINX_2}
       X_FORWARDED_PROTO_HEADER_SET: True
-      MEDIA_URL: https://${SERVICE_FQDN_WEB}/media/
-      STATIC_URL: https://${SERVICE_FQDN_WEB}/static/
+      MEDIA_URL: https://${SERVICE_FQDN_NGINX}/media/
+      STATIC_URL: https://${SERVICE_FQDN_NGINX}/static/
       WGER_INSTANCE: https://wger.de
       ALLOW_REGISTRATION: "True"
       ALLOW_GUEST_USERS: "True"
@@ -202,7 +202,7 @@ services:
       DJANGO_DEBUG: "False"
       WGER_USE_GUNICORN: "True"
       EXERCISE_CACHE_TTL: 18000
-      SITE_URL: http://${SERVICE_FQDN_WEB}
+      SITE_URL: http://${SERVICE_FQDN_NGINX}
       ACCESS_TOKEN_LIFETIME: 10
       REFRESH_TOKEN_LIFETIME: 24
       USE_RECAPTCHA: "False"
@@ -228,10 +228,10 @@ services:
       SECRET_KEY: ${SERVICE_BASE64_WEB}
       SIGNING_KEY: ${SERVICE_BASE64_64_WEB}
       TIME_ZONE: Europe/Berlin
-      CSRF_TRUSTED_ORIGINS: https://${SERVICE_FQDN_WEB},https://${SERVICE_FQDN_WEB_2}
+      CSRF_TRUSTED_ORIGINS: https://${SERVICE_FQDN_NGINX},https://${SERVICE_FQDN_NGINX_2}
       X_FORWARDED_PROTO_HEADER_SET: True
-      MEDIA_URL: https://${SERVICE_FQDN_WEB}/media/
-      STATIC_URL: https://${SERVICE_FQDN_WEB}/static/
+      MEDIA_URL: https://${SERVICE_FQDN_NGINX}/media/
+      STATIC_URL: https://${SERVICE_FQDN_NGINX}/static/
       WGER_INSTANCE: https://wger.de
       ALLOW_REGISTRATION: "True"
       ALLOW_GUEST_USERS: "True"
@@ -267,7 +267,7 @@ services:
       DJANGO_DEBUG: "False"
       WGER_USE_GUNICORN: "True"
       EXERCISE_CACHE_TTL: 18000
-      SITE_URL: http://${SERVICE_FQDN_WEB}
+      SITE_URL: http://${SERVICE_FQDN_NGINX}
       ACCESS_TOKEN_LIFETIME: 10
       REFRESH_TOKEN_LIFETIME: 24
       USE_RECAPTCHA: "False"
