@@ -2,7 +2,10 @@ name: Staging Build
 
 on:
   push:
-    branches-ignore: ["main", "v3"]
+    branches-ignore:
+      - v4.x
+      - v3.x
+      - '**v5.x**'
     paths-ignore:
         - .github/workflows/coolify-helper.yml
         - .github/workflows/coolify-helper-next.yml
@@ -11,7 +14,8 @@ on:
         - docker/coolify-helper/Dockerfile
         - docker/coolify-realtime/Dockerfile
         - docker/testing-host/Dockerfile
-        - templates/*
+        - templates/**
+        - CHANGELOG.md
 
 env:
   GITHUB_REGISTRY: ghcr.io
@@ -42,7 +46,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: docker/prod/Dockerfile
+          file: docker/production/Dockerfile
           platforms: linux/amd64
           push: true
           tags: |
@@ -75,7 +79,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: docker/prod/Dockerfile
+          file: docker/production/Dockerfile
           platforms: linux/aarch64
           push: true
           tags: |

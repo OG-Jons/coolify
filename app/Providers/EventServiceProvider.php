@@ -2,13 +2,16 @@
 
 namespace App\Providers;
 
-use App\Events\ProxyStarted;
 use App\Listeners\MaintenanceModeDisabledNotification;
 use App\Listeners\MaintenanceModeEnabledNotification;
-use App\Listeners\ProxyStartedNotification;
 use Illuminate\Foundation\Events\MaintenanceModeDisabled;
 use Illuminate\Foundation\Events\MaintenanceModeEnabled;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
+use SocialiteProviders\Authentik\AuthentikExtendSocialite;
+use SocialiteProviders\Azure\AzureExtendSocialite;
+use SocialiteProviders\Google\GoogleExtendSocialite;
+use SocialiteProviders\Infomaniak\InfomaniakExtendSocialite;
+use SocialiteProviders\Manager\SocialiteWasCalled;
 
 class EventServiceProvider extends ServiceProvider
 {
@@ -19,11 +22,11 @@ class EventServiceProvider extends ServiceProvider
         MaintenanceModeDisabled::class => [
             MaintenanceModeDisabledNotification::class,
         ],
-        \SocialiteProviders\Manager\SocialiteWasCalled::class => [
-            \SocialiteProviders\Azure\AzureExtendSocialite::class.'@handle',
-        ],
-        ProxyStarted::class => [
-            ProxyStartedNotification::class,
+        SocialiteWasCalled::class => [
+            AzureExtendSocialite::class.'@handle',
+            AuthentikExtendSocialite::class.'@handle',
+            GoogleExtendSocialite::class.'@handle',
+            InfomaniakExtendSocialite::class.'@handle',
         ],
     ];
 
@@ -34,6 +37,6 @@ class EventServiceProvider extends ServiceProvider
 
     public function shouldDiscoverEvents(): bool
     {
-        return false;
+        return true;
     }
 }

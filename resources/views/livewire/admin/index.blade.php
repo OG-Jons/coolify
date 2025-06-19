@@ -1,7 +1,12 @@
 <div>
     <h1>Admin Dashboard</h1>
-    <h3 class="pt-4">Who am I now?</h3>
-    <div class="pb-4">{{ auth()->user()->name }}</div>
+    <div class="flex gap-2 pt-4">
+        <h3>Who am I now?</h3>
+        @if (session('impersonating'))
+            <x-forms.button wire:click="back">Go back to root</x-forms.button>
+        @endif
+    </div>
+    <div class="pb-4">{{ auth()->user()->name }} ({{ auth()->user()->email }})</div>
     <form wire:submit="submitSearch" class="flex flex-col gap-2 lg:flex-row">
         <x-forms.input wire:model="search" placeholder="Search for a user" />
         <x-forms.button type="submit">Search</x-forms.button>
@@ -12,7 +17,7 @@
         @if ($foundUsers->count() > 0)
             <div class="flex flex-wrap gap-2 pt-4">
                 @foreach ($foundUsers as $user)
-                    <div class="box w-64 group">
+                    <div class="box w-64 group" wire:click="switchUser({{ $user->id }})">
                         <div class="flex flex-col gap-2">
                             <div class="box-title">{{ $user->name }}</div>
                             <div class="box-description">{{ $user->email }}</div>

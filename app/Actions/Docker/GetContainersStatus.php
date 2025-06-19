@@ -4,10 +4,10 @@ namespace App\Actions\Docker;
 
 use App\Actions\Database\StartDatabaseProxy;
 use App\Actions\Shared\ComplexStatusCheck;
+use App\Events\ServiceChecked;
 use App\Models\ApplicationPreview;
 use App\Models\Server;
 use App\Models\ServiceDatabase;
-use App\Notifications\Container\ContainerRestarted;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Lorisleiva\Actions\Concerns\AsAction;
@@ -15,6 +15,8 @@ use Lorisleiva\Actions\Concerns\AsAction;
 class GetContainersStatus
 {
     use AsAction;
+
+    public string $jobQueue = 'high';
 
     public $applications;
 
@@ -111,7 +113,7 @@ class GetContainersStatus
                             $preview->update(['last_online_at' => now()]);
                         }
                     } else {
-                        //Notify user that this container should not be there.
+                        // Notify user that this container should not be there.
                     }
                 } else {
                     $application = $this->applications->where('id', $applicationId)->first();
@@ -124,7 +126,7 @@ class GetContainersStatus
                             $application->update(['last_online_at' => now()]);
                         }
                     } else {
-                        //Notify user that this container should not be there.
+                        // Notify user that this container should not be there.
                     }
                 }
             } else {
@@ -178,7 +180,7 @@ class GetContainersStatus
                                 })->first();
                                 if (! $foundTcpProxy) {
                                     StartDatabaseProxy::run($database);
-                                    // $this->server->team?->notify(new ContainerRestarted("TCP Proxy for {$database->name}", $this->server));
+                                    // $this->server->team?->notify(new ContainerRestarted("TCP Proxy for database", $this->server));
                                 }
                             }
                         } else {
@@ -207,7 +209,6 @@ class GetContainersStatus
                     $foundServices[] = "$service->id-$service->name";
                     $statusFromDb = $service->status;
                     if ($statusFromDb !== $containerStatus) {
-                        // ray('Updating status: ' . $containerStatus);
                         $service->update(['status' => $containerStatus]);
                     } else {
                         $service->update(['last_online_at' => now()]);
@@ -273,24 +274,13 @@ class GetContainersStatus
             if (str($application->status)->startsWith('exited')) {
                 continue;
             }
-            $application->update(['status' => 'exited']);
 
-            $name = data_get($application, 'name');
-            $fqdn = data_get($application, 'fqdn');
-
-            $containerName = $name ? "$name ($fqdn)" : $fqdn;
-
-            $projectUuid = data_get($application, 'environment.project.uuid');
-            $applicationUuid = data_get($application, 'uuid');
-            $environment = data_get($application, 'environment.name');
-
-            if ($projectUuid && $applicationUuid && $environment) {
-                $url = base_url().'/project/'.$projectUuid.'/'.$environment.'/application/'.$applicationUuid;
-            } else {
-                $url = null;
+            // Only protection: If no containers at all, Docker query might have failed
+            if ($this->containers->isEmpty()) {
+                continue;
             }
 
-            // $this->server->team?->notify(new ContainerStopped($containerName, $this->server, $url));
+            $application->update(['status' => 'exited']);
         }
         $notRunningApplicationPreviews = $previews->pluck('id')->diff($foundApplicationPreviews);
         foreach ($notRunningApplicationPreviews as $previewId) {
@@ -298,24 +288,13 @@ class GetContainersStatus
             if (str($preview->status)->startsWith('exited')) {
                 continue;
             }
-            $preview->update(['status' => 'exited']);
 
-            $name = data_get($preview, 'name');
-            $fqdn = data_get($preview, 'fqdn');
-
-            $containerName = $name ? "$name ($fqdn)" : $fqdn;
-
-            $projectUuid = data_get($preview, 'application.environment.project.uuid');
-            $environmentName = data_get($preview, 'application.environment.name');
-            $applicationUuid = data_get($preview, 'application.uuid');
-
-            if ($projectUuid && $applicationUuid && $environmentName) {
-                $url = base_url().'/project/'.$projectUuid.'/'.$environmentName.'/application/'.$applicationUuid;
-            } else {
-                $url = null;
+            // Only protection: If no containers at all, Docker query might have failed
+            if ($this->containers->isEmpty()) {
+                continue;
             }
 
-            // $this->server->team?->notify(new ContainerStopped($containerName, $this->server, $url));
+            $preview->update(['status' => 'exited']);
         }
         $notRunningDatabases = $databases->pluck('id')->diff($foundDatabases);
         foreach ($notRunningDatabases as $database) {
@@ -341,5 +320,6 @@ class GetContainersStatus
             }
             // $this->server->team?->notify(new ContainerStopped($containerName, $this->server, $url));
         }
+        ServiceChecked::dispatch($this->server->team->id);
     }
 }

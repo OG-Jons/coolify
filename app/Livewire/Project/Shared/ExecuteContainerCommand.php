@@ -13,8 +13,6 @@ class ExecuteContainerCommand extends Component
 {
     public $selected_container = 'default';
 
-    public $container;
-
     public Collection $containers;
 
     public $parameters;
@@ -23,9 +21,9 @@ class ExecuteContainerCommand extends Component
 
     public string $type;
 
-    public Server $server;
-
     public Collection $servers;
+
+    public bool $isConnecting = false;
 
     protected $rules = [
         'server' => 'required',
@@ -74,8 +72,9 @@ class ExecuteContainerCommand extends Component
         } elseif (data_get($this->parameters, 'server_uuid')) {
             $this->type = 'server';
             $this->resource = Server::where('uuid', $this->parameters['server_uuid'])->firstOrFail();
-            $this->server = $this->resource;
+            $this->servers = $this->servers->push($this->resource);
         }
+        $this->servers = $this->servers->sortByDesc(fn ($server) => $server->isTerminalEnabled());
     }
 
     public function loadContainers()
@@ -93,7 +92,7 @@ class ExecuteContainerCommand extends Component
                 }
                 foreach ($containers as $container) {
                     // if container state is running
-                    if (data_get($container, 'State') === 'running') {
+                    if (data_get($container, 'State') === 'running' && $server->isTerminalEnabled()) {
                         $payload = [
                             'server' => $server,
                             'container' => $container,
@@ -102,7 +101,7 @@ class ExecuteContainerCommand extends Component
                     }
                 }
             } elseif (data_get($this->parameters, 'database_uuid')) {
-                if ($this->resource->isRunning()) {
+                if ($this->resource->isRunning() && $server->isTerminalEnabled()) {
                     $this->containers = $this->containers->push([
                         'server' => $server,
                         'container' => [
@@ -112,7 +111,7 @@ class ExecuteContainerCommand extends Component
                 }
             } elseif (data_get($this->parameters, 'service_uuid')) {
                 $this->resource->applications()->get()->each(function ($application) {
-                    if ($application->isRunning()) {
+                    if ($application->isRunning() && $this->resource->server->isTerminalEnabled()) {
                         $this->containers->push([
                             'server' => $this->resource->server,
                             'container' => [
@@ -133,9 +132,6 @@ class ExecuteContainerCommand extends Component
                 });
             }
         }
-        if ($this->containers->count() > 0) {
-            $this->container = $this->containers->first();
-        }
         if ($this->containers->count() === 1) {
             $this->selected_container = data_get($this->containers->first(), 'container.Names');
         }
@@ -145,17 +141,20 @@ class ExecuteContainerCommand extends Component
     public function connectToServer()
     {
         try {
-            if ($this->server->isForceDisabled()) {
+            $server = $this->servers->first();
+            if ($server->isForceDisabled()) {
                 throw new \RuntimeException('Server is disabled.');
             }
             $this->dispatch(
                 'send-terminal-command',
                 false,
-                data_get($this->server, 'name'),
-                data_get($this->server, 'uuid')
+                data_get($server, 'name'),
+                data_get($server, 'uuid')
             );
         } catch (\Throwable $e) {
             return handleError($e, $this);
+        } finally {
+            $this->isConnecting = false;
         }
     }
 
@@ -168,23 +167,49 @@ class ExecuteContainerCommand extends Component
             return;
         }
         try {
+            // Validate container name format
+            if (! preg_match('/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/', $this->selected_container)) {
+                throw new \InvalidArgumentException('Invalid container name format');
+            }
+
+            // Verify container exists in our allowed list
             $container = collect($this->containers)->firstWhere('container.Names', $this->selected_container);
             if (is_null($container)) {
                 throw new \RuntimeException('Container not found.');
             }
-            $server = data_get($this->container, 'server');
+
+            // Verify server ownership and status
+            $server = data_get($container, 'server');
+            if (! $server || ! $server instanceof Server) {
+                throw new \RuntimeException('Invalid server configuration.');
+            }
 
             if ($server->isForceDisabled()) {
                 throw new \RuntimeException('Server is disabled.');
             }
+
+            // Additional ownership verification based on resource type
+            $resourceServer = match ($this->type) {
+                'application' => $this->resource->destination->server,
+                'database' => $this->resource->destination->server,
+                'service' => $this->resource->server,
+                default => throw new \RuntimeException('Invalid resource type.')
+            };
+
+            if ($server->id !== $resourceServer->id && ! $this->resource->additional_servers->contains('id', $server->id)) {
+                throw new \RuntimeException('Server ownership verification failed.');
+            }
+
             $this->dispatch(
                 'send-terminal-command',
-                isset($container),
+                true,
                 data_get($container, 'container.Names'),
                 data_get($container, 'server.uuid')
             );
         } catch (\Throwable $e) {
             return handleError($e, $this);
+        } finally {
+            $this->isConnecting = false;
         }
     }
 

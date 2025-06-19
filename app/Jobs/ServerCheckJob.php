@@ -28,7 +28,7 @@ class ServerCheckJob implements ShouldBeEncrypted, ShouldQueue
 
     public function middleware(): array
     {
-        return [(new WithoutOverlapping($this->server->id))->dontRelease()];
+        return [(new WithoutOverlapping('server-check-'.$this->server->uuid))->dontRelease()];
     }
 
     public function __construct(public Server $server) {}
@@ -68,7 +68,7 @@ class ServerCheckJob implements ShouldBeEncrypted, ShouldQueue
                         try {
                             $shouldStart = CheckProxy::run($this->server);
                             if ($shouldStart) {
-                                StartProxy::run($this->server, false);
+                                StartProxy::run($this->server, async: false);
                                 $this->server->team?->notify(new ContainerRestarted('coolify-proxy', $this->server));
                             }
                         } catch (\Throwable $e) {
@@ -94,10 +94,10 @@ class ServerCheckJob implements ShouldBeEncrypted, ShouldQueue
         if ($foundLogDrainContainer) {
             $status = data_get($foundLogDrainContainer, 'State.Status');
             if ($status !== 'running') {
-                StartLogDrain::dispatch($this->server)->onQueue('high');
+                StartLogDrain::dispatch($this->server);
             }
         } else {
-            StartLogDrain::dispatch($this->server)->onQueue('high');
+            StartLogDrain::dispatch($this->server);
         }
     }
 }

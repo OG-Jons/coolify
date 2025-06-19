@@ -26,6 +26,9 @@ class Advanced extends Component
     public bool $isAutoDeployEnabled = true;
 
     #[Validate(['boolean'])]
+    public bool $disableBuildCache = false;
+
+    #[Validate(['boolean'])]
     public bool $isLogDrainEnabled = false;
 
     #[Validate(['boolean'])]
@@ -95,6 +98,7 @@ class Advanced extends Component
             $this->application->settings->is_stripprefix_enabled = $this->isStripprefixEnabled;
             $this->application->settings->is_raw_compose_deployment_enabled = $this->isRawComposeDeploymentEnabled;
             $this->application->settings->connect_to_docker_network = $this->isConnectToDockerNetworkEnabled;
+            $this->application->settings->disable_build_cache = $this->disableBuildCache;
             $this->application->settings->save();
         } else {
             $this->isForceHttpsEnabled = $this->application->isForceHttpsEnabled();
@@ -116,12 +120,24 @@ class Advanced extends Component
             $this->customInternalName = $this->application->settings->custom_internal_name;
             $this->isRawComposeDeploymentEnabled = $this->application->settings->is_raw_compose_deployment_enabled;
             $this->isConnectToDockerNetworkEnabled = $this->application->settings->connect_to_docker_network;
+            $this->disableBuildCache = $this->application->settings->disable_build_cache;
         }
+    }
+
+    private function resetDefaultLabels()
+    {
+        if ($this->application->settings->is_container_label_readonly_enabled === false) {
+            return;
+        }
+        $customLabels = str(implode('|coolify|', generateLabelsApplication($this->application)))->replace('|coolify|', "\n");
+        $this->application->custom_labels = base64_encode($customLabels);
+        $this->application->save();
     }
 
     public function instantSave()
     {
         try {
+            $reset = false;
             if ($this->isLogDrainEnabled) {
                 if (! $this->application->destination->server->isLogDrainEnabled()) {
                     $this->isLogDrainEnabled = false;
@@ -135,7 +151,7 @@ class Advanced extends Component
                 $this->application->isGzipEnabled() !== $this->isGzipEnabled ||
                 $this->application->isStripprefixEnabled() !== $this->isStripprefixEnabled
             ) {
-                $this->dispatch('resetDefaultLabels', false);
+                $reset = true;
             }
 
             if ($this->application->settings->is_raw_compose_deployment_enabled) {
@@ -144,6 +160,11 @@ class Advanced extends Component
                 $this->application->parse();
             }
             $this->syncData(true);
+
+            if ($reset) {
+                $this->resetDefaultLabels();
+            }
+
             $this->dispatch('success', 'Settings saved.');
             $this->dispatch('configurationChanged');
         } catch (\Throwable $e) {

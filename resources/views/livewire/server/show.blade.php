@@ -2,7 +2,7 @@
     <x-slot:title>
         {{ data_get_str($server, 'name')->limit(10) }} > General | Coolify
     </x-slot>
-    <x-server.navbar :server="$server" />
+    <livewire:server.navbar :server="$server" />
     <div class="flex flex-col h-full gap-8 sm:flex-row">
         <x-server.sidebar :server="$server" activeMenu="general" />
         <div class="w-full">
@@ -12,7 +12,7 @@
                     @if ($server->id === 0)
                         <x-modal-confirmation title="Confirm Server Settings Change?" buttonTitle="Save"
                             submitAction="submit" :actions="[
-                                'If you missconfigure the server, you could lose a lot of functionalities of Coolify.',
+                                'If you misconfigure the server, you could lose a lot of functionalities of Coolify.',
                             ]" :confirmWithText="false" :confirmWithPassword="false"
                             step2ButtonText="Save" />
                     @else
@@ -88,7 +88,7 @@
                     <div class="w-full" x-data="{
                         open: false,
                         search: '{{ $serverTimezone ?: '' }}',
-                        timezones: @js($timezones),
+                        timezones: @js($this->timezones),
                         placeholder: '{{ $serverTimezone ? 'Search timezone...' : 'Select Server Timezone' }}',
                         init() {
                             this.$watch('search', value => {
@@ -110,8 +110,7 @@
                                     wire:dirty.class.remove='dark:focus:ring-coolgray-300 dark:ring-coolgray-300'
                                     wire:dirty.class="dark:focus:ring-warning dark:ring-warning" x-model="search"
                                     @focus="open = true" @click.away="open = false" @input="open = true"
-                                    class="w-full input" :placeholder="placeholder"
-                                    wire:model.debounce.300ms="serverTimezone">
+                                    class="w-full input" :placeholder="placeholder" wire:model="serverTimezone">
                                 <svg class="absolute right-0 mr-2 w-4 h-4" xmlns="http://www.w3.org/2000/svg"
                                     fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
                                     @click="open = true">
@@ -124,7 +123,7 @@
                                 <template
                                     x-for="timezone in timezones.filter(tz => tz.toLowerCase().includes(search.toLowerCase()))"
                                     :key="timezone">
-                                    <div @click="search = timezone; open = false; $wire.set('serverTimezone', timezone)"
+                                    <div @click="search = timezone; open = false; $wire.set('serverTimezone', timezone); $wire.submit()"
                                         class="px-4 py-2 text-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-coolgray-300 dark:text-gray-200"
                                         x-text="timezone"></div>
                                 </template>
@@ -135,7 +134,14 @@
                     <div class="w-full">
                         @if (!$server->isLocalhost())
                             <div class="w-96">
-                                <x-forms.checkbox instantSave id="isBuildServer" label="Use it as a build server?" />
+                                @if ($isBuildServerLocked)
+                                    <x-forms.checkbox disabled instantSave id="isBuildServer"
+                                        helper="You can't use this server as a build server because it has defined resources."
+                                        label="Use it as a build server?" />
+                                @else
+                                    <x-forms.checkbox instantSave id="isBuildServer"
+                                        label="Use it as a build server?" />
+                                @endif
                             </div>
 
                             @if (!$server->isBuildServer() && !$server->settings->is_cloudflare_tunnel)
@@ -174,7 +180,9 @@
             @if ($server->isFunctional() && !$server->isSwarm() && !$server->isBuildServer())
                 <form wire:submit.prevent='submit'>
                     <div class="flex gap-2 items-center pt-4 pb-2">
-                        <h3>Sentinel</h3>
+                        <h3>Sentinel
+                        </h3>
+                        <x-helper helper="Sentinel reports your server's & container's health and collects metrics." />
                         @if ($server->isSentinelEnabled())
                             <div class="flex gap-2 items-center">
                                 @if ($server->isSentinelLive())
@@ -191,19 +199,22 @@
                         @endif
                     </div>
                     <div class="flex flex-col gap-2">
-                        <div class="flex gap-2">Experimental feature <x-helper
-                                helper="Sentinel reports your server's & container's health and collects metrics." />
-                        </div>
-                        <div class="w-64">
+
+                        <div class="w-96">
                             <x-forms.checkbox wire:model.live="isSentinelEnabled" label="Enable Sentinel" />
                             @if ($server->isSentinelEnabled())
-                                <x-forms.checkbox id="isSentinelDebugEnabled" label="Enable Sentinel Debug"
-                                    instantSave />
+                                @if (isDev())
+                                    <x-forms.checkbox id="isSentinelDebugEnabled" label="Enable Sentinel (with debug)"
+                                        instantSave />
+                                @endif
                                 <x-forms.checkbox instantSave id="isMetricsEnabled" label="Enable Metrics" />
                             @else
-                                <x-forms.checkbox id="isSentinelDebugEnabled" label="Enable Sentinel Debug" disabled
-                                    instantSave />
-                                <x-forms.checkbox instantSave disabled id="isMetricsEnabled" label="Enable Metrics" />
+                                @if (isDev())
+                                    <x-forms.checkbox id="isSentinelDebugEnabled" label="Enable Sentinel (with debug)"
+                                        disabled instantSave />
+                                @endif
+                                <x-forms.checkbox instantSave disabled id="isMetricsEnabled"
+                                    label="Enable Metrics (enable Sentinel first)" />
                             @endif
                         </div>
                         @if ($server->isSentinelEnabled())
@@ -220,12 +231,11 @@
                                 <div class="flex flex-wrap gap-2 sm:flex-nowrap">
                                     <x-forms.input id="sentinelMetricsRefreshRateSeconds"
                                         label="Metrics rate (seconds)" required
-                                        helper="The interval for gathering metrics. Lower means more disk space will be used." />
+                                        helper="Interval used for gathering metrics. Lower values result in more disk space usage." />
                                     <x-forms.input id="sentinelMetricsHistoryDays" label="Metrics history (days)"
-                                        required helper="How many days should the metrics data should be reserved." />
+                                        required helper="Number of days to retain metrics data for." />
                                     <x-forms.input id="sentinelPushIntervalSeconds" label="Push interval (seconds)"
-                                        required
-                                        helper="How many seconds should the metrics data should be pushed to the collector." />
+                                        required helper="Interval at which metrics data is sent to the collector." />
                                 </div>
                             </div>
                         @endif

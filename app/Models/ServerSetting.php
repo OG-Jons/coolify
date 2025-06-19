@@ -28,6 +28,7 @@ use OpenApi\Attributes as OA;
         'is_sentinel_enabled' => ['type' => 'boolean'],
         'is_swarm_manager' => ['type' => 'boolean'],
         'is_swarm_worker' => ['type' => 'boolean'],
+        'is_terminal_enabled' => ['type' => 'boolean'],
         'is_usable' => ['type' => 'boolean'],
         'logdrain_axiom_api_key' => ['type' => 'string'],
         'logdrain_axiom_dataset_name' => ['type' => 'string'],
@@ -45,6 +46,8 @@ use OpenApi\Attributes as OA;
         'wildcard_domain' => ['type' => 'string'],
         'created_at' => ['type' => 'string'],
         'updated_at' => ['type' => 'string'],
+        'delete_unused_volumes' => ['type' => 'boolean', 'description' => 'The flag to indicate if the unused volumes should be deleted.'],
+        'delete_unused_networks' => ['type' => 'boolean', 'description' => 'The flag to indicate if the unused networks should be deleted.'],
     ]
 )]
 class ServerSetting extends Model
@@ -57,6 +60,7 @@ class ServerSetting extends Model
         'sentinel_token' => 'encrypted',
         'is_reachable' => 'boolean',
         'is_usable' => 'boolean',
+        'is_terminal_enabled' => 'boolean',
     ];
 
     protected static function booted()
@@ -82,9 +86,6 @@ class ServerSetting extends Model
                 $settings->isDirty('sentinel_push_interval_seconds')
             ) {
                 $settings->server->restartSentinel();
-            }
-            if ($settings->isDirty('is_reachable')) {
-                $settings->server->isReachableChanged();
             }
         });
     }

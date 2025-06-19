@@ -9,12 +9,18 @@
     <a class="menu-item {{ $activeMenu === 'private-key' ? 'menu-item-active' : '' }}"
         href="{{ route('server.private-key', ['server_uuid' => $server->uuid]) }}">Private Key
     </a>
+    <a class="menu-item {{ $activeMenu === 'ca-certificate' ? 'menu-item-active' : '' }}"
+        href="{{ route('server.ca-certificate', ['server_uuid' => $server->uuid]) }}">CA Certificate
+    </a>
+    @if (!$server->isLocalhost())
+        <a class="menu-item {{ $activeMenu === 'cloudflare-tunnel' ? 'menu-item-active' : '' }}"
+            href="{{ route('server.cloudflare-tunnel', ['server_uuid' => $server->uuid]) }}">Cloudflare
+            Tunnel</a>
+    @endif
     @if ($server->isFunctional())
-        @if (!$server->isLocalhost())
-            <a class="menu-item {{ $activeMenu === 'cloudflare-tunnels' ? 'menu-item-active' : '' }}"
-                href="{{ route('server.cloudflare-tunnels', ['server_uuid' => $server->uuid]) }}">Cloudflare
-                Tunnels</a>
-        @endif
+        <a class="menu-item {{ $activeMenu === 'docker-cleanup' ? 'menu-item-active' : '' }}"
+            href="{{ route('server.docker-cleanup', ['server_uuid' => $server->uuid]) }}">Docker Cleanup
+        </a>
         <a class="menu-item {{ $activeMenu === 'destinations' ? 'menu-item-active' : '' }}"
             href="{{ route('server.destinations', ['server_uuid' => $server->uuid]) }}">Destinations
         </a>

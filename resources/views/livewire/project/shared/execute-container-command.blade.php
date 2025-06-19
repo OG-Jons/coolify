@@ -12,26 +12,16 @@
         <livewire:project.database.heading :database="$resource" />
     @elseif ($type === 'service')
         <livewire:project.shared.configuration-checker :resource="$resource" />
-        <livewire:project.service.navbar :service="$resource" :parameters="$parameters" title="Terminal" />
-    @elseif ($type === 'server')
-        <x-server.navbar :server="$server" :parameters="$parameters" />
+        <livewire:project.service.heading :service="$resource" :parameters="$parameters" title="Terminal" />
     @endif
-    @if ($type === 'server')
-        <form class="w-full" wire:submit="$dispatchSelf('connectToServer')" wire:init="$dispatchSelf('connectToServer')">
-            <x-forms.button class="w-full" type="submit">Reconnect</x-forms.button>
-        </form>
-        <div class="mx-auto w-full">
-            <livewire:project.shared.terminal />
-        </div>
-    @else
-        @if (count($containers) > 0)
-            @if (count($containers) === 1)
-                <form class="w-full pt-4"
-                    wire:submit="$dispatchSelf('connectToContainer')" wire:init="$dispatchSelf('connectToContainer')">
-                    <x-forms.button class="w-full" type="submit">Reconnect</x-forms.button>
-                </form>
-            @else
-                <form class="w-full pt-4 flex gap-2 flex-col" wire:submit="$dispatchSelf('connectToContainer')">
+
+    @if ($type === 'application' || $type === 'database' || $type === 'service')
+        <h2 class="pb-4">Terminal</h2>
+        @if (count($containers) === 0)
+            <div>No containers are running or terminal access is disabled on this server.</div>
+        @else
+            @foreach ($containers as $container)
+                <form class="w-full flex gap-2 items-end" wire:submit="$dispatchSelf('connectToContainer')">
                     <x-forms.select label="Container" id="container" required wire:model="selected_container">
                         @foreach ($containers as $container)
                             @if ($loop->first)
@@ -43,16 +33,30 @@
                             </option>
                         @endforeach
                     </x-forms.select>
-                    <x-forms.button class="w-full" type="submit">
-                        Connect
-                    </x-forms.button>
+                    <x-forms.button :disabled="$isConnecting"
+                        type="submit">{{ $isConnecting ? 'Connecting...' : 'Connect' }}</x-forms.button>
                 </form>
-            @endif
+            @endforeach
+            <div class="mx-auto w-full">
+                <livewire:project.shared.terminal />
+            </div>
+        @endif
+    @endif
+
+    @if ($type === 'server')
+        <livewire:server.navbar :server="$servers->first()" />
+        @if ($servers->first()->isTerminalEnabled())
+            <form class="w-full flex gap-2 items-start" wire:submit="$dispatchSelf('connectToServer')"
+                wire:init="$dispatchSelf('connectToServer')">
+                <h2 class="pb-4">Terminal</h2>
+                <x-forms.button :disabled="$isConnecting"
+                    type="submit">{{ $isConnecting ? 'Connecting...' : 'Connect' }}</x-forms.button>
+            </form>
             <div class="mx-auto w-full">
                 <livewire:project.shared.terminal />
             </div>
         @else
-            <div class="pt-4">No containers are running.</div>
+            <div>Terminal access is disabled on this server.</div>
         @endif
     @endif
 </div>

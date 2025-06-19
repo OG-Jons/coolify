@@ -2,8 +2,10 @@
 
 namespace App\Livewire\Server;
 
-use App\Jobs\DockerCleanupJob;
+use App\Models\InstanceSettings;
 use App\Models\Server;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 
@@ -13,29 +15,20 @@ class Advanced extends Component
 
     public array $parameters = [];
 
+    #[Validate(['string'])]
+    public string $serverDiskUsageCheckFrequency = '0 23 * * *';
+
+    #[Validate(['integer', 'min:1', 'max:99'])]
+    public int $serverDiskUsageNotificationThreshold = 50;
+
     #[Validate(['integer', 'min:1'])]
     public int $concurrentBuilds = 1;
 
     #[Validate(['integer', 'min:1'])]
     public int $dynamicTimeout = 1;
 
-    #[Validate('boolean')]
-    public bool $forceDockerCleanup = false;
-
-    #[Validate('string')]
-    public string $dockerCleanupFrequency = '*/10 * * * *';
-
-    #[Validate(['integer', 'min:1', 'max:99'])]
-    public int $dockerCleanupThreshold = 10;
-
-    #[Validate(['integer', 'min:1', 'max:99'])]
-    public int $serverDiskUsageNotificationThreshold = 50;
-
-    #[Validate('boolean')]
-    public bool $deleteUnusedVolumes = false;
-
-    #[Validate('boolean')]
-    public bool $deleteUnusedNetworks = false;
+    #[Validate(['boolean'])]
+    public bool $isTerminalEnabled = false;
 
     public function mount(string $server_uuid)
     {
@@ -43,8 +36,40 @@ class Advanced extends Component
             $this->server = Server::ownedByCurrentTeam()->whereUuid($server_uuid)->firstOrFail();
             $this->parameters = get_route_parameters();
             $this->syncData();
+
         } catch (\Throwable) {
-            return redirect()->route('server.show');
+            return redirect()->route('server.index');
+        }
+    }
+
+    public function toggleTerminal($password)
+    {
+        try {
+            // Check if user is admin or owner
+            if (! auth()->user()->isAdmin()) {
+                throw new \Exception('Only team administrators and owners can modify terminal access.');
+            }
+
+            // Verify password unless two-step confirmation is disabled
+            if (! data_get(InstanceSettings::get(), 'disable_two_step_confirmation')) {
+                if (! Hash::check($password, Auth::user()->password)) {
+                    $this->addError('password', 'The provided password is incorrect.');
+
+                    return;
+                }
+            }
+
+            // Toggle the terminal setting
+            $this->server->settings->is_terminal_enabled = ! $this->server->settings->is_terminal_enabled;
+            $this->server->settings->save();
+
+            // Update the local property
+            $this->isTerminalEnabled = $this->server->settings->is_terminal_enabled;
+
+            $status = $this->isTerminalEnabled ? 'enabled' : 'disabled';
+            $this->dispatch('success', "Terminal access has been {$status}.");
+        } catch (\Throwable $e) {
+            return handleError($e, $this);
         }
     }
 
@@ -54,22 +79,15 @@ class Advanced extends Component
             $this->validate();
             $this->server->settings->concurrent_builds = $this->concurrentBuilds;
             $this->server->settings->dynamic_timeout = $this->dynamicTimeout;
-            $this->server->settings->force_docker_cleanup = $this->forceDockerCleanup;
-            $this->server->settings->docker_cleanup_frequency = $this->dockerCleanupFrequency;
-            $this->server->settings->docker_cleanup_threshold = $this->dockerCleanupThreshold;
             $this->server->settings->server_disk_usage_notification_threshold = $this->serverDiskUsageNotificationThreshold;
-            $this->server->settings->delete_unused_volumes = $this->deleteUnusedVolumes;
-            $this->server->settings->delete_unused_networks = $this->deleteUnusedNetworks;
+            $this->server->settings->server_disk_usage_check_frequency = $this->serverDiskUsageCheckFrequency;
             $this->server->settings->save();
         } else {
             $this->concurrentBuilds = $this->server->settings->concurrent_builds;
             $this->dynamicTimeout = $this->server->settings->dynamic_timeout;
-            $this->forceDockerCleanup = $this->server->settings->force_docker_cleanup;
-            $this->dockerCleanupFrequency = $this->server->settings->docker_cleanup_frequency;
-            $this->dockerCleanupThreshold = $this->server->settings->docker_cleanup_threshold;
             $this->serverDiskUsageNotificationThreshold = $this->server->settings->server_disk_usage_notification_threshold;
-            $this->deleteUnusedVolumes = $this->server->settings->delete_unused_volumes;
-            $this->deleteUnusedNetworks = $this->server->settings->delete_unused_networks;
+            $this->serverDiskUsageCheckFrequency = $this->server->settings->server_disk_usage_check_frequency;
+            $this->isTerminalEnabled = $this->server->settings->is_terminal_enabled;
         }
     }
 
@@ -78,17 +96,6 @@ class Advanced extends Component
         try {
             $this->syncData(true);
             $this->dispatch('success', 'Server updated.');
-            // $this->dispatch('refreshServerShow');
-        } catch (\Throwable $e) {
-            return handleError($e, $this);
-        }
-    }
-
-    public function manualCleanup()
-    {
-        try {
-            DockerCleanupJob::dispatch($this->server, true);
-            $this->dispatch('success', 'Manual cleanup job started. Depending on the amount of data, this might take a while.');
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -97,9 +104,9 @@ class Advanced extends Component
     public function submit()
     {
         try {
-            if (! validate_cron_expression($this->dockerCleanupFrequency)) {
-                $this->dockerCleanupFrequency = $this->server->settings->getOriginal('docker_cleanup_frequency');
-                throw new \Exception('Invalid Cron / Human expression for Docker Cleanup Frequency.');
+            if (! validate_cron_expression($this->serverDiskUsageCheckFrequency)) {
+                $this->serverDiskUsageCheckFrequency = $this->server->settings->getOriginal('server_disk_usage_check_frequency');
+                throw new \Exception('Invalid Cron / Human expression for Disk Usage Check Frequency.');
             }
             $this->syncData(true);
             $this->dispatch('success', 'Server updated.');

@@ -17,12 +17,15 @@ class PullTemplatesFromCDN implements ShouldBeEncrypted, ShouldQueue
 
     public $timeout = 10;
 
-    public function __construct() {}
+    public function __construct()
+    {
+        $this->onQueue('high');
+    }
 
     public function handle(): void
     {
         try {
-            if (isDev() || isCloud()) {
+            if (isDev()) {
                 return;
             }
             $response = Http::retry(3, 1000)->get(config('constants.services.official'));

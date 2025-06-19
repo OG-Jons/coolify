@@ -24,7 +24,7 @@ class StartClickhouse
         $this->configuration_dir = database_configuration_dir().'/'.$container_name;
 
         $this->commands = [
-            "echo 'Starting {$database->name}.'",
+            "echo 'Starting database.'",
             "mkdir -p $this->configuration_dir",
         ];
 
@@ -49,11 +49,7 @@ class StartClickhouse
                             'hard' => 262144,
                         ],
                     ],
-                    'labels' => [
-                        'coolify.managed' => 'true',
-                        'coolify.type' => 'database',
-                        'coolify.databaseId' => $this->database->id,
-                    ],
+                    'labels' => defaultDatabaseLabels($this->database)->toArray(),
                     'healthcheck' => [
                         'test' => "clickhouse-client --password {$this->database->clickhouse_admin_password} --query 'SELECT 1'",
                         'interval' => '5s',

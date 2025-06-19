@@ -3,9 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Casts\Attribute;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class StandaloneMongodb extends BaseModel
@@ -99,7 +97,7 @@ class StandaloneMongodb extends BaseModel
         return database_configuration_dir()."/{$this->uuid}";
     }
 
-    public function delete_configurations()
+    public function deleteConfigurations()
     {
         $server = data_get($this, 'destination.server');
         $workdir = $this->workdir();
@@ -108,8 +106,9 @@ class StandaloneMongodb extends BaseModel
         }
     }
 
-    public function delete_volumes(Collection $persistentStorages)
+    public function deleteVolumes()
     {
+        $persistentStorages = $this->persistentStorages()->get() ?? collect();
         if ($persistentStorages->count() === 0) {
             return;
         }
@@ -178,12 +177,17 @@ class StandaloneMongodb extends BaseModel
         return data_get($this, 'is_log_drain_enabled', false);
     }
 
+    public function sslCertificates()
+    {
+        return $this->morphMany(SslCertificate::class, 'resource');
+    }
+
     public function link()
     {
         if (data_get($this, 'environment.project.uuid')) {
             return route('project.database.configuration', [
                 'project_uuid' => data_get($this, 'environment.project.uuid'),
-                'environment_name' => data_get($this, 'environment.name'),
+                'environment_uuid' => data_get($this, 'environment.uuid'),
                 'database_uuid' => data_get($this, 'uuid'),
             ]);
         }
@@ -239,7 +243,19 @@ class StandaloneMongodb extends BaseModel
     protected function internalDbUrl(): Attribute
     {
         return new Attribute(
-            get: fn () => "mongodb://{$this->mongo_initdb_root_username}:{$this->mongo_initdb_root_password}@{$this->uuid}:27017/?directConnection=true",
+            get: function () {
+                $encodedUser = rawurlencode($this->mongo_initdb_root_username);
+                $encodedPass = rawurlencode($this->mongo_initdb_root_password);
+                $url = "mongodb://{$encodedUser}:{$encodedPass}@{$this->uuid}:27017/?directConnection=true";
+                if ($this->enable_ssl) {
+                    $url .= '&tls=true&tlsCAFile=/etc/mongo/certs/ca.pem';
+                    if (in_array($this->ssl_mode, ['verify-full'])) {
+                        $url .= '&tlsCertificateKeyFile=/etc/mongo/certs/server.pem';
+                    }
+                }
+
+                return $url;
+            },
         );
     }
 
@@ -248,7 +264,17 @@ class StandaloneMongodb extends BaseModel
         return new Attribute(
             get: function () {
                 if ($this->is_public && $this->public_port) {
-                    return "mongodb://{$this->mongo_initdb_root_username}:{$this->mongo_initdb_root_password}@{$this->destination->server->getIp}:{$this->public_port}/?directConnection=true";
+                    $encodedUser = rawurlencode($this->mongo_initdb_root_username);
+                    $encodedPass = rawurlencode($this->mongo_initdb_root_password);
+                    $url = "mongodb://{$encodedUser}:{$encodedPass}@{$this->destination->server->getIp}:{$this->public_port}/?directConnection=true";
+                    if ($this->enable_ssl) {
+                        $url .= '&tls=true&tlsCAFile=/etc/mongo/certs/ca.pem';
+                        if (in_array($this->ssl_mode, ['verify-full'])) {
+                            $url .= '&tlsCertificateKeyFile=/etc/mongo/certs/server.pem';
+                        }
+                    }
+
+                    return $url;
                 }
 
                 return null;
@@ -271,14 +297,9 @@ class StandaloneMongodb extends BaseModel
         return $this->morphTo();
     }
 
-    public function environment_variables(): HasMany
+    public function runtime_environment_variables()
     {
-        return $this->hasMany(EnvironmentVariable::class);
-    }
-
-    public function runtime_environment_variables(): HasMany
-    {
-        return $this->hasMany(EnvironmentVariable::class);
+        return $this->morphMany(EnvironmentVariable::class, 'resourceable');
     }
 
     public function persistentStorages()
@@ -338,5 +359,11 @@ class StandaloneMongodb extends BaseModel
     public function isBackupSolutionAvailable()
     {
         return true;
+    }
+
+    public function environment_variables()
+    {
+        return $this->morphMany(EnvironmentVariable::class, 'resourceable')
+            ->orderBy('key', 'asc');
     }
 }

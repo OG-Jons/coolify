@@ -8,13 +8,8 @@
     <h1>Dashboard</h1>
     <div class="subtitle">Your self-hosted infrastructure.</div>
     @if (request()->query->get('success'))
-        <div class="items-center justify-center mb-10 font-bold rounded alert alert-success">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 stroke-current shrink-0" fill="none"
-                viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Your subscription has been activated! Welcome onboard! <br>It could take a few seconds before your
+        <div class=" mb-10 font-bold alert alert-success">
+            Your subscription has been activated! Welcome onboard! It could take a few seconds before your
             subscription is activated.<br> Please be patient.
         </div>
     @endif
@@ -25,7 +20,7 @@
             <div class="grid grid-cols-1 gap-2 xl:grid-cols-2">
                 @foreach ($projects as $project)
                     <div class="gap-2 border border-transparent cursor-pointer box group"
-                        onclick="gotoProject('{{ $project->uuid }}','{{ $project->default_environment }}')">
+                        wire:click="navigateToProject('{{ $project->uuid }}')">
                         <div class="flex flex-1 mx-6">
                             <div class="flex flex-col justify-center flex-1">
                                 <div class="box-title">{{ $project->name }}</div>
@@ -34,11 +29,16 @@
                                 </div>
                             </div>
                             <div class="flex items-center justify-center gap-2 text-xs font-bold">
-                                <a class="hover:underline"
-                                    href="{{ route('project.resource.create', ['project_uuid' => $project->uuid, 'environment_name' => data_get($project, 'default_environment', 'production')]) }}">
-                                    <span class="p-2 font-bold">+ Add Resource</span>
-                                </a>
-                                <a class="hover:underline"
+                                @if ($project->environments->first())
+                                    <a class="hover:underline" wire:click.stop
+                                        href="{{ route('project.resource.create', [
+                                            'project_uuid' => $project->uuid,
+                                            'environment_uuid' => $project->environments->first()->uuid,
+                                        ]) }}">
+                                        <span class="p-2 font-bold">+ Add Resource</span>
+                                    </a>
+                                @endif
+                                <a class="hover:underline" wire:click.stop
                                     href="{{ route('project.edit', ['project_uuid' => $project->uuid]) }}">
                                     Settings
                                 </a>
@@ -167,15 +167,4 @@
             </div>
         </section>
     @endif
-
-
-    <script>
-        function gotoProject(uuid, environment) {
-            if (environment) {
-                window.location.href = '/project/' + uuid + '/' + environment;
-            } else {
-                window.location.href = '/project/' + uuid;
-            }
-        }
-    </script>
 </div>

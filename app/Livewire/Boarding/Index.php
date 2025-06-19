@@ -7,8 +7,10 @@ use App\Models\PrivateKey;
 use App\Models\Project;
 use App\Models\Server;
 use App\Models\Team;
+use App\Services\ConfigurationRepository;
 use Illuminate\Support\Collection;
 use Livewire\Component;
+use Visus\Cuid2\Cuid2;
 
 class Index extends Component
 {
@@ -66,11 +68,15 @@ class Index extends Component
 
     public bool $serverReachable = true;
 
+    public ?string $minDockerVersion = null;
+
     public function mount()
     {
         if (auth()->user()?->isMember() && auth()->user()->currentTeam()->show_boarding === true) {
             return redirect()->route('dashboard');
         }
+
+        $this->minDockerVersion = str(config('constants.docker.minimum_required_version'))->before('.');
         $this->privateKeyName = generate_random_name();
         $this->remoteServerName = generate_random_name();
         if (isDev()) {
@@ -168,13 +174,7 @@ uZx9iFkCELtxrh31QJ68AAAAEXNhaWxANzZmZjY2ZDJlMmRkAQIDBA==
 
     public function getProxyType()
     {
-        // Set Default Proxy Type
         $this->selectProxy(ProxyTypes::TRAEFIK->value);
-        // $proxyTypeSet = $this->createdServer->proxy->type;
-        // if (!$proxyTypeSet) {
-        //     $this->currentState = 'select-proxy';
-        //     return;
-        // }
         $this->getProjects();
     }
 
@@ -185,7 +185,7 @@ uZx9iFkCELtxrh31QJ68AAAAEXNhaWxANzZmZjY2ZDJlMmRkAQIDBA==
 
             return;
         }
-        $this->createdPrivateKey = PrivateKey::find($this->selectedExistingPrivateKey);
+        $this->createdPrivateKey = PrivateKey::where('team_id', currentTeam()->id)->where('id', $this->selectedExistingPrivateKey)->first();
         $this->privateKey = $this->createdPrivateKey->private_key;
         $this->currentState = 'create-server';
     }
@@ -267,7 +267,7 @@ uZx9iFkCELtxrh31QJ68AAAAEXNhaWxANzZmZjY2ZDJlMmRkAQIDBA==
     public function validateServer()
     {
         try {
-            config()->set('constants.ssh.mux_enabled', false);
+            $this->disableSshMux();
 
             // EC2 does not have `uptime` command, lol
             instant_remote_process(['ls /'], $this->createdServer, true);
@@ -336,6 +336,7 @@ uZx9iFkCELtxrh31QJ68AAAAEXNhaWxANzZmZjY2ZDJlMmRkAQIDBA==
         $this->createdProject = Project::create([
             'name' => 'My first project',
             'team_id' => currentTeam()->id,
+            'uuid' => (string) new Cuid2,
         ]);
         $this->currentState = 'create-resource';
     }
@@ -348,7 +349,7 @@ uZx9iFkCELtxrh31QJ68AAAAEXNhaWxANzZmZjY2ZDJlMmRkAQIDBA==
             'project.resource.create',
             [
                 'project_uuid' => $this->createdProject->uuid,
-                'environment_name' => 'production',
+                'environment_uuid' => $this->createdProject->environments->first()->uuid,
                 'server' => $this->createdServer->id,
             ]
         );
@@ -374,6 +375,12 @@ uZx9iFkCELtxrh31QJ68AAAAEXNhaWxANzZmZjY2ZDJlMmRkAQIDBA==
         $this->privateKeyName = generate_random_name();
         $this->privateKeyDescription = 'Created by Coolify';
         ['private' => $this->privateKey, 'public' => $this->publicKey] = generateSSHKey();
+    }
+
+    private function disableSshMux(): void
+    {
+        $configRepository = app(ConfigurationRepository::class);
+        $configRepository->disableSshMux();
     }
 
     public function render()

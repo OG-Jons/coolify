@@ -9,22 +9,23 @@ class StartLogDrain
 {
     use AsAction;
 
+    public string $jobQueue = 'high';
+
     public function handle(Server $server)
     {
         if ($server->settings->is_logdrain_newrelic_enabled) {
             $type = 'newrelic';
-            StopLogDrain::run($server);
         } elseif ($server->settings->is_logdrain_highlight_enabled) {
             $type = 'highlight';
-            StopLogDrain::run($server);
         } elseif ($server->settings->is_logdrain_axiom_enabled) {
             $type = 'axiom';
-            StopLogDrain::run($server);
         } elseif ($server->settings->is_logdrain_custom_enabled) {
             $type = 'custom';
-            StopLogDrain::run($server);
         } else {
             $type = 'none';
+        }
+        if ($type !== 'none') {
+            StopLogDrain::run($server);
         }
         try {
             if ($type === 'none') {
@@ -169,7 +170,7 @@ Files:
 ');
             $license_key = $server->settings->logdrain_newrelic_license_key;
             $base_uri = $server->settings->logdrain_newrelic_base_uri;
-            $base_path = config('coolify.base_config_path');
+            $base_path = config('constants.coolify.base_config_path');
 
             $config_path = $base_path.'/log-drains';
             $fluent_bit_config = $config_path.'/fluent-bit.conf';
@@ -184,7 +185,6 @@ Files:
                 "echo '{$compose}' | base64 -d | tee $compose_path > /dev/null",
                 "echo '{$readme}' | base64 -d | tee $readme_path > /dev/null",
                 "test -f $config_path/.env && rm $config_path/.env",
-
             ];
             if ($type === 'newrelic') {
                 $add_envs_command = [
