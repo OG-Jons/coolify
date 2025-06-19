@@ -20,7 +20,7 @@ services:
     environment:
       - SERVICE_FQDN_PIHOLE_2284
       - TZ=${TZ:-Europe/London}
-      - FTLCONF_webserver_api_password=$SERVICE_PASSWORD_IMMICH
+      - FTLCONF_webserver_api_password=$SERVICE_PASSWORD_PIHOLE
       - FTLCONF_dns_listeningMode=${FTLCONF_dns_listeningMode:-all}
     # Volumes store your data between container upgrades
     volumes:
