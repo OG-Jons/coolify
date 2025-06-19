@@ -1,7 +1,7 @@
 # documentation: https://pi-hole.net/
 # slogan: Network-wide Ad Blocking
-# tags: ad-block,dns,sinkhole
-# logo: svgs/pi-hole.svg
+# tags: ad-block,dns,sinkhole,ntp,dhcp
+# logo: svgs/pihole.svg
 # port: 2284
 
 # More info at https://github.com/pi-hole/docker-pi-hole/ and https://docs.pi-hole.net/
